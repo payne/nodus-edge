@@ -11,6 +11,12 @@ repeaters.json
 fm_capture/
 output/
 
+# Internal docs — NEVER commit to public repo
+docs/plans/
+docs/architecture/
+docs/reference/
+*.internal.md
+
 # Python
 __pycache__/
 *.pyc

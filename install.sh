@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NodusNet FM Edge Node — One-Command Installer
+# NodusNet Edge Node — One-Command Installer
 #
 # Install from anywhere:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/nodusrf/nodus-edge/main/install.sh)"
@@ -82,7 +82,7 @@ resolve_file() {
 
 echo ""
 echo "============================================================"
-echo -e "  ${BOLD}NodusNet FM Edge Node — Installer${NC}"
+echo -e "  ${BOLD}NodusNet Edge Node — Installer${NC}"
 echo "============================================================"
 echo ""
 echo "  This script will:"
@@ -520,7 +520,7 @@ NODE_ID="$(grep '^RECEPT_NODE_ID=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2
 
 echo ""
 echo "============================================================"
-echo -e "  ${GREEN}${BOLD}NodusNet FM Edge Node — Installed!${NC}"
+echo -e "  ${GREEN}${BOLD}NodusNet Edge Node — Installed!${NC}"
 echo "============================================================"
 echo ""
 echo -e "  Node:          ${BOLD}${NODE_ID}${NC}"

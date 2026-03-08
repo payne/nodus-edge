@@ -1,6 +1,6 @@
-# Nodus Recept FM — Edge Node
+# NodusNet Edge Node
 
-Run your own Nodus FM monitoring station with an RTL-SDR dongle and Docker.
+Run your own Nodus monitoring station with an RTL-SDR dongle and Docker.
 
 ## Hardware Requirements
 
@@ -15,7 +15,7 @@ Run your own Nodus FM monitoring station with an RTL-SDR dongle and Docker.
 ```bash
 # 1. Clone or download the edge directory
 git clone https://github.com/nodusrf/nodus.git
-cd nodus/edge/recept-fm
+cd nodus/edge/recept
 
 # 2. Configure
 cp .env.example .env
