@@ -1300,6 +1300,7 @@ RECEPT_FM_AIRBAND_SQUELCH_SNR_DB={airband_squelch_snr_db}
 RECEPT_SYNAPSE_ENDPOINT={synapse_endpoint}
 RECEPT_SYNAPSE_AUTH_TOKEN={synapse_auth_token}
 RECEPT_DIAGNOSTICS_ENDPOINT={diagnostics_endpoint}
+RECEPT_REM_ENDPOINT={rem_endpoint}
 
 # ---- Transcription ----
 RECEPT_WHISPER_API_URL={whisper_api_url}
@@ -1328,6 +1329,7 @@ def generate_env(output_dir: Path, config: dict) -> str:
         synapse_endpoint=synapse_ep,
         synapse_auth_token=config.get("synapse_auth_token", ""),
         diagnostics_endpoint=diagnostics_ep,
+        rem_endpoint=f"{synapse_ep}/v1" if synapse_ep else "",
         whisper_api_url=config.get("whisper_api_url", ""),
         whisper_auth_token=config.get("whisper_auth_token", ""),
         transcription_enabled="true" if config.get("whisper_api_url") else "false",
