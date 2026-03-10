@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# RELEASE: nodusrf/nodus-edge nodusnet-updater.sh
 # NodusNet Edge Node — OTA Updater
 #
 # Pull-based update system: fetches version manifest from Gateway, pulls new

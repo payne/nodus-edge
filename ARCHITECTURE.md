@@ -1,3 +1,4 @@
+<!-- RELEASE: nodusrf/nodus-edge ARCHITECTURE.md -->
 # NodusNet Edge — Architecture Overview
 
 How the NodusNet edge node update and deployment system works under the hood.

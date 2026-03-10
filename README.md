@@ -1,3 +1,4 @@
+<!-- RELEASE: nodusrf/nodus-edge README.md -->
 # NodusNet Edge Node
 
 Run your own Nodus monitoring station with an RTL-SDR dongle and Docker.

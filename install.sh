@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
+# RELEASE: nodusrf/nodus-edge install.sh
 # NodusNet Edge Node — One-Command Installer
 #
 # Install from anywhere:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/nodusrf/nodus-edge/main/install.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/nodusrf/nodus/main/scripts/install-edge.sh)"
 #
 # Or from the repo:
-#   ./install.sh
+#   ./scripts/install-edge.sh
 #
 # Options:
 #   --dry-run    Preview without making changes
 #
 # Prerequisites: Linux (x86_64 or arm64), internet access, RTL-SDR dongle
-# Installs to: ~/nodusnet/
+# Installs to: ~/nodusedge/
 #
 # Refs #203
 
@@ -21,8 +22,8 @@ set -euo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-INSTALL_DIR="$HOME/nodusnet"
-GITHUB_RAW="https://raw.githubusercontent.com/nodusrf/nodus-edge/main"
+INSTALL_DIR="$HOME/nodusedge"
+GITHUB_RAW="https://raw.githubusercontent.com/nodusrf/nodus/main"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -89,9 +90,9 @@ echo "  This script will:"
 echo "    1. Install Docker (if needed)"
 echo "    2. Configure USB permissions for RTL-SDR"
 echo "    3. Run the setup wizard (server, location, callsign)"
-echo "    4. Deploy containers to ~/nodusnet/"
+echo "    4. Deploy containers to ~/nodusedge/"
 echo ""
-echo -e "  ${DIM}https://github.com/nodusrf/nodus${NC}"
+echo -e "  ${DIM}https://github.com/nodusrf/nodus-edge${NC}"
 echo ""
 
 if $DRY_RUN; then
@@ -256,7 +257,7 @@ fi
 # Step 4: Download files + prepare install directory
 # ---------------------------------------------------------------------------
 
-step "Step 4: Prepare ~/nodusnet/"
+step "Step 4: Prepare ~/nodusedge/"
 
 run mkdir -p "$INSTALL_DIR/data"
 
@@ -271,7 +272,7 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "armv7l" ]; then
     if grep -qi "raspberry\|BCM2" /proc/cpuinfo 2>/dev/null || \
        grep -qi "raspberry" /proc/device-tree/model 2>/dev/null; then
         IS_PI=true
-        info "Raspberry Pi detected — will use remote Whisper (no local container)"
+        info "Raspberry Pi detected — will use remote Whisper for transcription"
     fi
 fi
 
@@ -279,27 +280,22 @@ if $DRY_RUN; then
     info "[dry-run] Would download/copy files to $INSTALL_DIR/"
 else
     # docker-compose.yml — strip build: context (not needed for image-based deploys)
-    resolve_file "docker-compose.yml" "$COMPOSE_DST.tmp" "docker-compose.yml"
+    resolve_file "edge/recept/docker-compose.yml" "$COMPOSE_DST.tmp" "docker-compose.yml"
     sed '/^    build:/,/^    [a-z]/{ /^    build:/d; /^      context:/d; /^      dockerfile:/d; }' \
         "$COMPOSE_DST.tmp" > "$COMPOSE_DST.tmp2"
     rm -f "$COMPOSE_DST.tmp"
 
-    # On Pi, remove depends_on whisper (whisper container won't run)
-    if $IS_PI; then
-        sed '/depends_on:/,/condition:/d' "$COMPOSE_DST.tmp2" > "$COMPOSE_DST"
-    else
-        mv "$COMPOSE_DST.tmp2" "$COMPOSE_DST"
-    fi
+    mv "$COMPOSE_DST.tmp2" "$COMPOSE_DST"
     rm -f "$COMPOSE_DST.tmp2"
 
     # Setup wizard
-    resolve_file "setup.py" "$WIZARD_PATH" "setup wizard"
+    resolve_file "scripts/setup-edge.py" "$WIZARD_PATH" "setup wizard"
 
     # CBSA zip-to-metro mapping
-    resolve_file "data/zip_metro.json" "$ZIPMETA_PATH" "zip-to-metro data (CBSA)"
+    resolve_file "recept/src/recept/data/zip_metro.json" "$ZIPMETA_PATH" "zip-to-metro data (CBSA)"
 
     # Offline 2m repeater bundle
-    resolve_file "data/repeaters_2m_us.json" "$REPEATERS_2M_PATH" "2m repeater database (offline)"
+    resolve_file "recept/src/recept/data/repeaters_2m_us.json" "$REPEATERS_2M_PATH" "2m repeater database (offline)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -347,16 +343,15 @@ if $IS_PI; then
     COMPOSE_EXTRA_ARGS="--scale whisper=0"
 fi
 
+export NODUS_TUNNEL_TOKEN="${NODUS_TUNNEL_TOKEN:-}"
+
 if $DRY_RUN; then
     info "[dry-run] docker compose -f $COMPOSE_DST pull"
     info "[dry-run] docker compose -f $COMPOSE_DST up -d $COMPOSE_EXTRA_ARGS"
 else
     info "Pulling container images (this may take a few minutes on first run)..."
-    if $IS_PI; then
+    docker compose -f "$COMPOSE_DST" pull nodus-edge support-sidecar whisper 2>/dev/null || \
         docker compose -f "$COMPOSE_DST" pull nodus-edge support-sidecar
-    else
-        docker compose -f "$COMPOSE_DST" pull
-    fi
 
     info "Starting containers..."
     docker compose -f "$COMPOSE_DST" up -d $COMPOSE_EXTRA_ARGS
@@ -366,15 +361,17 @@ fi
 # Step 7: OTA Updater
 # ---------------------------------------------------------------------------
 
-step "Step 7: OTA Updater"
+step "Step 7: Post-Install Setup"
+info "Configuring OTA updater and restart watcher..."
 
 UPDATER_PATH="$INSTALL_DIR/nodusnet-updater.sh"
 
 if $DRY_RUN; then
     info "[dry-run] Would install OTA updater"
 else
-    resolve_file "nodusnet-updater.sh" "$UPDATER_PATH" "OTA updater"
+    { resolve_file "scripts/nodusnet-updater.sh" "$UPDATER_PATH" "OTA updater"; } > /dev/null
     chmod +x "$UPDATER_PATH"
+    info "OTA updater configured"
 
     # Install systemd user timer if systemd user session is available
     if systemctl --user status &>/dev/null 2>&1; then
@@ -417,11 +414,7 @@ TMREOF
     fi
 fi
 
-# ---------------------------------------------------------------------------
-# Step 8: Dashboard Restart Watcher
-# ---------------------------------------------------------------------------
-
-step "Step 8: Dashboard Restart Watcher"
+# Dashboard Restart Watcher
 
 if $DRY_RUN; then
     info "[dry-run] Would install restart watcher"
@@ -459,56 +452,28 @@ RSTEOF
 fi
 
 # ---------------------------------------------------------------------------
-# Step 9: Wait for health
+# Step 8: NodusNet Connection Test
 # ---------------------------------------------------------------------------
 
-step "Step 9: Health Check"
+step "Step 8: NodusNet Connection Test"
 
 if $DRY_RUN; then
-    info "[dry-run] Would wait for health check"
-elif $IS_PI; then
-    info "Raspberry Pi: skipping local Whisper health check (using remote endpoint)"
-    echo ""
+    info "[dry-run] Would test NodusNet connectivity"
 else
-    info "Waiting for Whisper to download model and become healthy..."
-    info "(First run may take 1-3 minutes while the model downloads)"
-    echo ""
+    # Read node_id and server from .env
+    NODE_ID="$(grep '^RECEPT_NODE_ID=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 || echo "unknown")"
+    SERVER="$(grep '^RECEPT_SYNAPSE_ENDPOINT=' "$INSTALL_DIR/.env" 2>/dev/null | cut -d= -f2 || echo "")"
 
-    MAX_WAIT=180
-    ELAPSED=0
-    INTERVAL=5
-
-    while [ $ELAPSED -lt $MAX_WAIT ]; do
-        HEALTH="$(docker compose -f "$COMPOSE_DST" ps whisper --format '{{.Health}}' 2>/dev/null || echo "")"
-        if [ "$HEALTH" = "healthy" ]; then
-            info "Whisper is healthy!"
-            break
+    if [ -n "$SERVER" ]; then
+        info "Testing connection to NodusNet..."
+        if curl -sf "${SERVER}/v1/health" > /dev/null 2>&1; then
+            info "Connected to NodusNet"
+        else
+            warn "Could not reach NodusNet at ${SERVER}"
+            warn "The node will retry automatically. Check your network if this persists."
         fi
-
-        STATE="$(docker compose -f "$COMPOSE_DST" ps whisper --format '{{.State}}' 2>/dev/null || echo "")"
-        if [ "$STATE" = "exited" ]; then
-            warn "Whisper container exited unexpectedly."
-            warn "Check logs: docker compose -f $COMPOSE_DST logs whisper"
-            break
-        fi
-
-        printf "    Waiting... (%ds / %ds)\r" "$ELAPSED" "$MAX_WAIT"
-        sleep $INTERVAL
-        ELAPSED=$((ELAPSED + INTERVAL))
-    done
-
-    if [ $ELAPSED -ge $MAX_WAIT ]; then
-        warn "Timed out waiting for Whisper (${MAX_WAIT}s). It may still be downloading."
-        warn "Check status: docker compose -f $COMPOSE_DST ps"
-    fi
-
-    echo ""
-    RECEPT_STATE="$(docker compose -f "$COMPOSE_DST" ps nodus-edge --format '{{.State}}' 2>/dev/null || echo "")"
-    if [ "$RECEPT_STATE" = "running" ]; then
-        info "NodusEdge is running!"
     else
-        warn "NodusEdge state: $RECEPT_STATE"
-        warn "Check logs: docker compose -f $COMPOSE_DST logs nodus-edge"
+        info "Standalone mode — no server connectivity test."
     fi
 fi
 
