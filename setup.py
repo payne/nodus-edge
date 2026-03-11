@@ -989,6 +989,7 @@ def ask_sdr_device(args) -> dict:
     if len(devices) == 1:
         info(f"Found 1 RTL-SDR: {devices[0]}")
         device_index = 0
+        gain = 40
     else:
         info(f"Found {len(devices)} RTL-SDR devices:")
         for i, dev in enumerate(devices):
@@ -1003,7 +1004,7 @@ def ask_sdr_device(args) -> dict:
         except ValueError:
             device_index = 0
 
-    gain = prompt("RTL-SDR gain (0-49, or 'auto')", default="40")
+        gain = prompt("RTL-SDR gain (0-49, or 'auto')", default="40")
 
     return {
         "device_index": device_index,
@@ -1240,17 +1241,16 @@ def ask_whisper(args) -> str:
     print()
 
     if pi_detected:
-        warn("Raspberry Pi detected — local Whisper transcription is not recommended.")
-        info("Using NodusNet cloud transcription via Gateway.")
-        print()
-        default_url = args.whisper_url or "https://nodusrf.com/v1"
+        url = args.whisper_url or "https://nodusrf.com/v1"
+        info("Raspberry Pi detected. Using NodusNet GPU pool for transcription.")
+        info(f"Whisper endpoint: {url}")
     else:
         default_url = args.whisper_url if args.whisper_url is not None else "http://whisper:8000"
 
-    url = prompt(
-        "Whisper transcription endpoint",
-        default=default_url,
-    )
+        url = prompt(
+            "Whisper transcription endpoint",
+            default=default_url,
+        )
 
     if url:
         # Skip connectivity test for Docker internal DNS (container isn't running yet)
